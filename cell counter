@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-img = cv2.imread('40example.tif')
+img = cv2.imread('example.tif')
 blur = cv2.GaussianBlur(img, (7, 7), 2)
 h, w = img.shape[:2]
 
