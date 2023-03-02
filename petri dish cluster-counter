@@ -1,0 +1,66 @@
+import numpy as np
+import cv2
+from PIL import Image, ImageDraw
+from sklearn.cluster import DBSCAN
+
+# Load the image
+image = cv2.imread("example.jpg", 0)
+output = cv2.imread("example.jpg", 1)
+
+# Apply Gaussian blur
+blurred = cv2.GaussianBlur(image, (11, 11), 0)
+
+# Detect circles
+circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, 100,
+                             param1=100, param2=90, minRadius=0, maxRadius=2000)
+
+num_detections = 0
+
+if circles is not None:
+    circles = np.round(circles[0, :]).astype("int")
+
+    for (x, y, r) in circles:
+        # Draw the circle and rectangle around it
+        cv2.circle(output, (x, y), r, (0, 255, 0), 3)
+        cv2.rectangle(output, (x - 2, y - 2), (x + 2, y + 2), (0, 255, 0), -1)
+
+        # Create mask with a white circle on a black background
+        mask = Image.new('L', output.shape[:2][::-1], 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((x - r, y - r, x + r, y + r), fill=255)
+
+        # Invert mask
+        mask = np.array(mask)
+        mask = np.invert(mask)
+
+        # Apply mask to original image
+        masked = np.ma.masked_array(image, mask=mask)
+
+        # Threshold the masked image to detect dark spots inside circle
+        threshold = 70
+        dark_spots = np.where(masked < threshold)
+
+        # Group dark spots that are close together using DBSCAN clustering
+        min_distance = 30
+        clustering = DBSCAN(eps=min_distance, min_samples=1).fit(np.transpose(dark_spots))
+        labels = clustering.labels_
+
+        # Draw circles around each cluster center
+        for label in np.unique(labels):
+            if label == -1:
+                continue  # Skip noise points
+            cluster_indices = np.where(labels == label)[0]
+            if len(cluster_indices) > 1:
+                # Compute the centroid of the cluster
+                centroid_x = int(np.mean(dark_spots[1][cluster_indices]))
+                centroid_y = int(np.mean(dark_spots[0][cluster_indices]))
+            else:
+                centroid_x = dark_spots[1][cluster_indices][0]
+                centroid_y = dark_spots[0][cluster_indices][0]
+            # Mark the detected dark spot as red circle
+            cv2.circle(output, (centroid_x, centroid_y), 3, (0, 0, 255), -1)
+            num_detections += 1
+
+print("Number of detected dark spots:", num_detections)
+cv2.imshow("Detections", output)
+cv2.waitKey()
