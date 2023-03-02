@@ -4,8 +4,8 @@ from PIL import Image, ImageDraw
 from sklearn.cluster import DBSCAN
 
 # Load the image
-image = cv2.imread("example.jpg", 0)
-output = cv2.imread("example.jpg", 1)
+image = cv2.imread("example1.jpg", 0)
+output = cv2.imread("example1.jpg", 1)
 
 # Apply Gaussian blur
 blurred = cv2.GaussianBlur(image, (11, 11), 0)
@@ -39,6 +39,13 @@ if circles is not None:
         # Threshold the masked image to detect dark spots inside circle
         threshold = 70
         dark_spots = np.where(masked < threshold)
+
+        # Apply circular mask to dark_spots array
+        dx = dark_spots[0] - y
+        dy = dark_spots[1] - x
+        distance = np.sqrt(dx**2 + dy**2)
+        mask_dark_spots = distance <= r
+        dark_spots = (dark_spots[0][mask_dark_spots], dark_spots[1][mask_dark_spots])
 
         # Group dark spots that are close together using DBSCAN clustering
         min_distance = 30
